@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { io } from "socket.io-client";
 import {
   MapContainer,
   TileLayer,
@@ -8,13 +9,14 @@ import {
   LayersControl,
   LayerGroup,
 } from "react-leaflet";
-import { FiArrowLeft, FiRefreshCcw } from "react-icons/fi";
+import { FiArrowLeft } from "react-icons/fi";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/routedetailscreen.css";
 import getEndpoint from "../utils/loadbalancer";
 import { UserContext } from "../contexts";
 
+// Fix default Leaflet icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
@@ -22,31 +24,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
 });
 
-//  Add AnimatedMarker back for testing
+// Animated marker (smooth bus move)
 function AnimatedMarker({ position, icon, children }) {
   const markerRef = useRef(null);
-  const prevPos = useRef(position);
-  const animationRef = useRef(null); // store requestAnimationFrame id
-  const [initialPosition] = useState(position);
+  const animationRef = useRef(null);
 
   useEffect(() => {
     if (!markerRef.current) return;
 
     const marker = markerRef.current;
-    const from = marker.getLatLng();  // current rendered position (no jump back)
-const to = L.latLng(position);
+    const from = marker.getLatLng();
+    const to = L.latLng(position);
 
-    if (!from || !to || from.equals(to)) {
-      prevPos.current = position;
-      return;
-    }
+    if (!from || !to || from.equals(to)) return;
 
-    // Cancel any running animation before starting a new one
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
 
-    const duration = 3000; // 3 second smooth move
+    const duration = 3000;
     let start = null;
 
     const animate = (timestamp) => {
@@ -54,33 +48,28 @@ const to = L.latLng(position);
       const progress = Math.min((timestamp - start) / duration, 1);
 
       const lat = from.lat + (to.lat - from.lat) * progress;
-      const lng = from.lng + (to.lng - from.lng) * progress;
-      marker.setLatLng([lat, lng]);
+      const lon = from.lon + (to.lon - from.lon) * progress;
+      marker.setLatLng([lat, lon]);
 
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate);
       } else {
-        prevPos.current = to; // save latest as baseline
         animationRef.current = null;
       }
     };
 
     animationRef.current = requestAnimationFrame(animate);
-
-    // Cleanup if component unmounts or new animation starts
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [position]);
 
   return (
-    <Marker ref={markerRef} position={initialPosition} icon={icon}>
+    <Marker ref={markerRef} position={position} icon={icon}>
       {children}
     </Marker>
   );
 }
-
-
 
 export default function RouteDetailScreen() {
   const navigate = useNavigate();
@@ -89,39 +78,85 @@ export default function RouteDetailScreen() {
   const [loc, setLoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const { token } = useContext(UserContext);
-  const [remtimer, setRemtimer] = useState(0);
   const mapRef = useRef(null);
 
-
+  // Center map when location updates
   useEffect(() => {
-  if (mapRef.current && loc?.lat && loc?.lng) {
-    mapRef.current.panTo([loc.lat, loc.lng]);
-  }
-}, [loc]);
+    if (mapRef.current && loc?.lat && loc?.lon) {
+      mapRef.current.panTo([loc.lat, loc.lon]);
+    }
+  }, [loc]);
 
+  // Initial fetch (optional fallback if no socket data yet)
   useEffect(() => {
     if (!token) navigate("/");
-    fetchLocation();
-  }, [token, navigate]);
+
+    const fetchLatest = async () => {
+      try {
+        const res = await fetch(`${getEndpoint()}/get-location/obu/${clgNo}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setLoc(data);
+        }
+      } catch (err) {
+        console.error("Initial fetch failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLatest();
+  }, [token, navigate, clgNo]);
+
+  // Live updates via socket
+  useEffect(() => {
+    const socket = io(process.env.REACT_APP_BACKEND_ENDPOINT1);
+
+    socket.on("connect", () => {
+      console.log("Connected to socket:", socket.id);
+    });
+
+    socket.on("locationUpdate", (data) => {
+      if (data.clgNo === clgNo) {
+        setLoc({
+          lat: data.lat,
+          lon: data.lon,
+          last: data.created_at,
+        });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from socket");
+    });
+
+    return () => socket.disconnect();
+  }, [clgNo]);
 
   const busDivIcon = (busNo) =>
     L.divIcon({
       html: `
-<div style="
-  display: flex; 
-  align-items: center; 
-  justify-content: flex-start; 
-  background-color: rgba(255, 255, 255, 0.8); 
-  border-radius: 8px; 
-  padding: 4px 8px;
-  border: 1px solid #316adeff;
-  width: fit-content;
-">
-  <img src="/bus-icon.png" style="width:30px; height:30px; border-radius:6px; margin-right:6px;" />
-  <span style="color: black; font-weight: bold; font-size: 20px;">
-    ${busNo}
-  </span>
-</div>
+        <div style="
+          display: flex; 
+          align-items: center; 
+          justify-content: flex-start; 
+          background-color: rgba(255, 255, 255, 0.8); 
+          border-radius: 8px; 
+          padding: 4px 8px;
+          border: 1px solid #316adeff;
+          width: fit-content;
+        ">
+          <img src="/bus-icon.png" style="width:30px; height:30px; border-radius:6px; margin-right:6px;" />
+          <span style="color: black; font-weight: bold; font-size: 20px;">
+            ${busNo}
+          </span>
+        </div>
       `,
       className: "",
       iconSize: [50, 50],
@@ -129,152 +164,29 @@ export default function RouteDetailScreen() {
       popupAnchor: [0, -40],
     });
 
-  const fetchLocation = async () => {
-    try {
-      const res = await fetch(`${getEndpoint()}/get-location/obu/${_id}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        if (res.status === 404) {
-          window.location.reload();
-          return;
-        }
-        throw new Error(`Server returned ${res.status}`);
-      }
-      const data = await res.json();
-      setLoc(data);
-    } catch (e) {
-      console.error("Fetch error", e);
-      window.alert("Could not fetch live location.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loc?.last) return;
-
-      if (loc.i === -1 || !loc.i) {
-        setRemtimer(-1); // stopped
-        return;
-      }
-
-      const lastTime = new Date(loc.last).getTime();
-      const nextFetchTime = lastTime + loc.i * 60000 + 3000;
-      const now = Date.now();
-
-      const diff = nextFetchTime - now;
-      setRemtimer(Math.max(0, Math.ceil(diff / 1000)));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [loc]);
-
-  if (loading)
-    return <div style={styles.centered}>Loading live location...</div>;
-  if (!loc)
-    return (
-      <div style={styles.centered}>⚠ Live location not available yet.</div>
-    );
-
-  // Reload control UI
-  function ReloadControl({ onReload }) {
-    const isStopped = remtimer === -1;
-    const isReady = remtimer === 0;
-
-    return (
-      <div
-        style={{
-          height: "fit-content",
-          marginBottom: "10px",
-          zIndex: 1000,
-          width: "100%",
-          backgroundColor: "#fff9db",
-          padding: "0.5rem",
-          display: "flex",
-          flexDirection: "row",
-        }}
-      >
-        <div>
-          <div
-            style={{
-              ...styles.statusBar,
-              fontSize: "15px",
-              padding: "0.2rem 0.5rem",
-            }}
-          >
-            Last updated: <strong>{new Date(loc.last).toLocaleString()}</strong>
-          </div>
-          <div
-            style={{
-              ...styles.statusBar,
-              fontSize: "14px",
-              padding: "0rem 0.5rem",
-            }}
-          >
-            {isStopped
-              ? "Tracking Stopped"
-              : isReady ? "Click reload button" : `Next Location Update in ${remtimer} secs`}
-          </div>
-        </div>
-
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <button
-            disabled={!isReady}
-            style={{
-              color: isReady ? "green" : "#2563EB",
-              cursor: isReady ? "pointer" : "not-allowed",
-              background: isReady ? "#d1fae5" : "transparent",
-              border: isReady ? "2px solid green" : "none",
-              borderRadius: "6px",
-              padding: "0.2rem 0.6rem",
-              fontWeight: isReady ? "bold" : "normal",
-              transition: "all 0.3s ease",
-              animation: isReady ? "pulse 1s infinite" : "none",
-            }}
-            onClick={onReload}
-          >
-            <FiRefreshCcw size={26} />
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div style={styles.centered}>Loading live location...</div>;
+  if (!loc) return <div style={styles.centered}>⚠ Live location not available yet.</div>;
 
   return (
     <div style={styles.container}>
       {/* Back Button */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "flex-start",
-          alignItems: "center",
-          width: "100%",
-          marginBottom: "2px",
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "row", marginBottom: "2px" }}>
         <button style={styles.backButton} onClick={() => navigate("/search")}>
           <FiArrowLeft size={20} />
         </button>
-        <div
-          style={{ width: "70%", textAlign: "center", height: "100%", ...styles.title }}
-        >
-          <span>Bus No: {clgNo || _id}</span>
+        <div style={{ width: "70%", textAlign: "center", ...styles.title }}>
+          <span>Bus No: {clgNo}</span>
         </div>
       </div>
 
-      <ReloadControl onReload={fetchLocation} />
-
-      
-      {/* Header */}
-      <div style={{height:"75%"}}>
-        <MapContainer ref={mapRef} center={[loc.lat,loc.long]} zoom={20} style={{ height: '100%', width: '100%' }}>
+      {/* Map */}
+      <div style={{ height: "85%" }}>
+        <MapContainer
+          ref={mapRef}
+          center={[loc.lat, loc.lon]}
+          zoom={17}
+          style={{ height: "100%", width: "100%" }}
+        >
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Street View">
               <TileLayer
@@ -297,22 +209,14 @@ export default function RouteDetailScreen() {
             </LayersControl.BaseLayer>
           </LayersControl>
 
-
-          <AnimatedMarker position={[loc.lat, loc.long ]} icon={busDivIcon(clgNo || _id)}>
+          <AnimatedMarker position={[loc.lat, loc.lon]} icon={busDivIcon(clgNo)}>
             <Popup>
-              <strong>Bus No:</strong> {clgNo || _id}
+              <strong>Bus No:</strong> {clgNo}
               <br />
               <strong>Last Updated:</strong>{" "}
-              {new Intl.DateTimeFormat("en-IN", {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: "Asia/Kolkata",
-              }).format(new Date(loc.last))}
+              {new Date(loc.last).toLocaleTimeString()}
             </Popup>
           </AnimatedMarker>
-
-          {/* Reload Button inside Map */}
-
         </MapContainer>
       </div>
     </div>
@@ -320,34 +224,24 @@ export default function RouteDetailScreen() {
 }
 
 const styles = {
-  statusBar: {
-    textAlign: "left",
-    color: "#444",
-  },
   container: {
     fontFamily: "Segoe UI, sans-serif",
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    height: "100dvh",
     background: "#f5f7f9ff",
     padding: "0.5rem",
   },
   backButton: {
-    alignSelf: "flex-start",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
     background: "#e5e7eb",
     border: "none",
     padding: "6px 12px",
     borderRadius: "8px",
     cursor: "pointer",
-    marginBottom: "10px",
     boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+    marginRight: "10px",
   },
   title: {
-    margin: 0,
     fontSize: "22px",
     fontWeight: "600",
     color: "#1E40AF",
@@ -357,7 +251,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     height: "100vh",
-    height: "100dvh",
     fontSize: "18px",
     color: "#666",
   },
