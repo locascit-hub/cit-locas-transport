@@ -33,7 +33,7 @@ export default function DriverLocation() {
     setStatus("Starting location sharing...");
 
     // Start watching position
-    const id = navigator.geolocation.watchPosition(
+    const id = navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;

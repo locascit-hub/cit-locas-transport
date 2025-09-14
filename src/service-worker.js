@@ -82,8 +82,9 @@ self.addEventListener('activate', (event) => {
 // Any other custom service worker logic can go here.
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
+  const timestamp = new Date(data.data?.ts).toLocaleString() || "";
   const options = {
-    body: data.body,
+    body: `${data.body ? data.body + ", " : ""}${timestamp}`,
     icon: "/icons/icon-192x192.png",
     badge: "/icons/badge.png",
     data: data.data, // keep the full data object here
