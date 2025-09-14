@@ -90,13 +90,12 @@ self.addEventListener("push", (event) => {
     data: data.data, // keep the full data object here
     requireInteraction: false,
     silent: false,
+    sound: '/sound/soundfile.wav',
   };
 
   event.waitUntil(
     self.registration.showNotification(data.title, options).then(() => {
-      if (data.data && data.data.playSound) {
-        self.playNotificationSound();
-      }
+     console.log("Notification shown with sound.");
     })
   );
 
@@ -144,8 +143,3 @@ self.addEventListener("notificationclick", (event) => {
 
 
 
-self.playNotificationSound = function() {
-  
-  const audio = new Audio('/sound/soundnot.wav');
-  audio.play().catch(err => console.error('Sound play failed:', err));
-};

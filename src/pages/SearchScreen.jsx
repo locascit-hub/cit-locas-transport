@@ -149,23 +149,13 @@ const handleViewSchedule = (bus) => {
                     <h3 style={styles.busId}>{bus.regnNumber}</h3>
                     <p style={styles.busRoute}>{bus.route}</p>
                   </div>
-                 {bus.obu_id ? (
-  <button
-    style={styles.trackButton}
-    onClick={() => handleViewBus(bus)}
-  >
-    <FiMap size={16} color="#FFFFFF" />
-    <span style={styles.trackButtonText}>Track Now</span>
-  </button>
-) : (
-  <button
-    style={{ ...styles.trackButton, backgroundColor: "#2563EB" }}
-    onClick={() => handleViewSchedule(bus)}
-  >
-    <FiMap size={16} color="#FFFFFF" />
-    <span style={styles.trackButtonText}>Show Schedule</span>
-  </button>
-)}
+                <button
+  style={styles.trackButton}
+  onClick={() => handleViewBus(bus)}
+>
+  <FiMap size={16} color="#FFFFFF" />
+  <span style={styles.trackButtonText}>Track Now</span>
+</button>
                 </div>
 
                 <div style={styles.busDetails}>
