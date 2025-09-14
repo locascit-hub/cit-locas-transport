@@ -103,7 +103,7 @@ export default function HomeScreen() {
       } catch {}
       return stops.split(",")[0].trim();
     }
-    return bus.route || bus.obu_id || bus.regnNumber || "—";
+    return bus.route  || bus.regnNumber || "—";
   }
 
   const handleDelete = (bus) => {
@@ -154,7 +154,7 @@ export default function HomeScreen() {
                       key={id} 
                       style={{ ...styles.busCardHorizontal, minWidth: 180, position: 'relative' }} 
                       onClick={() => navigate('/route-detail', {
-                        state: { userType: 'student' || 'incharge@cit@chennai@0409', _id: bus.obu_id, clgNo: bus.clgNo },
+                        state: { userType: 'student' || 'incharge@cit@chennai@0409', clgNo: bus.clgNo },
                       })}
                     >
                       {/* delete button */}
@@ -195,9 +195,9 @@ export default function HomeScreen() {
               <FiSearch size={32} color="#2563EB" />
               <p style={styles.actionText}>Search Bus</p>
             </div>
-            <div className="action-card" style={styles.actionCard} onClick={() => navigate("/tracking") }>
+            <div className="action-card" style={styles.actionCard} onClick={() => navigate("/profile",{state:{redirectToMap: true}} ) }>
               <FiMapPin size={32} color="#24a972ff" />
-              <p style={styles.actionText}>Schedule</p>
+              <p style={styles.actionText}>Pin location</p>
             </div>
             <div className="action-card" style={styles.actionCard} onClick={() => navigate("/profile") }>
               <FiUser size={32} color="#24a972ff" />
