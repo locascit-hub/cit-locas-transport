@@ -140,6 +140,33 @@ async function purgeIndexedDB(dbname) {
       console.error("Service Worker not supported in this browser.");
     }
   };
+  // In your parent component (e.g., App.js)
+
+const unsubscribeUserFromPush = async (token) => {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    
+    if (subscription) {
+      // Tell the backend to delete this subscription
+      await fetch(`${getEndpoint()}/api/unsubscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
+      });
+      
+      // Unsubscribe the browser
+      await subscription.unsubscribe();
+      console.log('User unsubscribed successfully.');
+    }
+  } catch (error) {
+    console.error('Failed to unsubscribe user:', error);
+    throw error; // Re-throw the error to be caught in the component
+  }
+};
 
 
 

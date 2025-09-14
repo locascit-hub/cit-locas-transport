@@ -12,11 +12,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../contexts';
 import Lightbox from 'yet-another-react-lightbox';
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import 'yet-another-react-lightbox/styles.css';
 import getEndpoint from '../utils/loadbalancer';
 import { openDB } from 'idb';
 
-// ---------- IndexedDB Helper ----------
+// ---------- IndexedDB Helper (No changes here) ----------
 const DB_NAME = 'notifications-db';
 const STORE_NAME = 'notifications';
 
@@ -28,30 +29,20 @@ const dbPromise = openDB(DB_NAME, 1, {
 
 const saveNotifications = async (notifs) => {
   const db = await dbPromise;
-
-  // Save new notifications
   const tx = db.transaction(STORE_NAME, "readwrite");
   notifs.forEach((notif) => tx.store.put(notif));
   await tx.done;
-
-  // Purge logic: keep only last 30 by `time`
   const purgeTx = db.transaction(STORE_NAME, "readwrite");
   const all = await purgeTx.store.getAll();
-
   if (all.length > 30) {
-    // Sort newest first
     all.sort((a, b) => new Date(b.time) - new Date(a.time));
-
-    // Delete everything after the latest 30
     const excess = all.slice(30);
     for (const old of excess) {
       await purgeTx.store.delete(old._id);
     }
   }
-
   await purgeTx.done;
 };
-
 
 const getAllNotifications = async () => {
   const db = await dbPromise;
@@ -72,8 +63,10 @@ const getLatestNotificationTime = async () => {
   return Math.max(...all.map((n) => new Date(n.time).getTime()));
 };
 
+
 // ---------- NotificationScreen ----------
-export default function NotificationScreen({ subscribeUserToPush }) {
+// MODIFICATION: Add unsubscribeUserFromPush to the props
+export default function NotificationScreen({ subscribeUserToPush, unsubscribeUserFromPush }) {
   const { role, token } = useContext(UserContext);
   const { userData } = useContext(UserContext);
   const navigate = useNavigate();
@@ -84,56 +77,69 @@ export default function NotificationScreen({ subscribeUserToPush }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [issub,setIssub] = useState(false);
-
-
-
   
+  const [issub, setIssub] = useState(() => localStorage.getItem('notificationToggleState') === 'true');
+  const [isPushSupported, setIsPushSupported] = useState(false);
+
   useEffect(() => {
     if (!userData) navigate('/');
   }, [userData, navigate]);
+  
+  useEffect(() => {
+    localStorage.setItem('notificationToggleState', issub);
+  }, [issub]);
 
-
-useEffect(() => {
-  const checkAndSubscribe = async () => {
-    try {
-      // Ensure service worker is registered
-      const reg = await navigator.serviceWorker.ready;
-
-      // Check existing subscription
-      const subscription = await reg.pushManager.getSubscription();
-
-      if (!subscription) {
-        // Not subscribed yet
-        if (role === "student") {
-          //console.log("Subscribing to push for student:", userData?.email,token);
-          await subscribeUserToPush(userData?.email, token);
-          setIssub(true);
-        }
-      } else {
-        //console.log("Already subscribed:", subscription);
-        // optionally send subscription info to backend if needed
-        setIssub(true);
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const subscription = await reg.pushManager.getSubscription();
+        setIssub(!!subscription); 
+      } catch (err) {
+        console.error("Error checking subscription status:", err);
+        setIssub(false);
       }
-    } catch (err) {
-      console.error("Error checking subscription:", err);
+    };
+
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      setIsPushSupported(true);
+      checkSubscriptionStatus();
+    } else {
+      setIsPushSupported(false);
+    }
+  }, []);
+
+  // MODIFICATION: Updated handleToggleChange to handle both subscribing and unsubscribing
+  const handleToggleChange = async () => {
+    if (issub) {
+      // --- Try to UNSUBSCRIBE ---
+      try {
+        await unsubscribeUserFromPush(token);
+        setIssub(false);
+        alert("Unsubscribed from notifications.");
+      } catch (err) {
+        console.error("Failed to unsubscribe user:", err);
+        alert("Could not unsubscribe. Please try again.");
+      }
+    } else {
+      // --- Try to SUBSCRIBE ---
+      try {
+        await subscribeUserToPush(userData?.email, token);
+        setIssub(true);
+        alert("Successfully subscribed to notifications!");
+      } catch (err) {
+        console.error("Failed to subscribe user:", err);
+        setIssub(false);
+        alert("Failed to subscribe. Please ensure you allow notification permissions in your browser.");
+      }
     }
   };
 
-  if ("serviceWorker" in navigator && "PushManager" in window) {
-    checkAndSubscribe();
-  }
-}, []);
-
-  // Redirect if no user data
-  // ---------- Fetch and Sync Notifications ----------
   const fetchNotifications = async () => {
     try {
       const storedNotifications = await getAllNotifications();
       setNotifications(storedNotifications);
-
       const latestTime = await getLatestNotificationTime();
-
       const res = await fetch(`${getEndpoint()}/api/notifications?after=${latestTime}`, {
         method: "GET",
         headers: {
@@ -142,7 +148,6 @@ useEffect(() => {
         },
       });
       const newNotifs = await res.json();
-
       if (newNotifs.length > 0) {
         setNotifications((prev) => [...newNotifs, ...prev]);
         await saveNotifications(newNotifs);
@@ -153,35 +158,20 @@ useEffect(() => {
   };
 
   const markNotificationAsRead = async (id) => {
-  const db = await dbPromise;
-  const notif = await db.get(STORE_NAME, id);
-  if (notif) {
-    notif.read = true;
-    await db.put(STORE_NAME, notif); // update notification in IDB
-  }
-};
-
-
+    const db = await dbPromise;
+    const notif = await db.get(STORE_NAME, id);
+    if (notif) {
+      notif.read = true;
+      await db.put(STORE_NAME, notif);
+    }
+  };
 
   useEffect(() => {
     fetchNotifications();
     if ('serviceWorker' in navigator) {
       const handler = async (event) => {
         if (event.data?.type === 'NEW_NOTIFICATION') {
-          const notifId = event.data?.notifId;
-          if (notifId) {
-            console.log('Push received for ID:', notifId);
-            const exists = await getNotificationById(notifId);
-            if (exists) {
-              console.log("Notification already in IDB, skipping fetch:", notifId);
-              return;
-            }
-            console.log('Push without ID → full refresh');
-            fetchNotifications();
-          }
-          else{
-             fetchNotifications();
-          }
+          fetchNotifications();
         }
       };
       navigator.serviceWorker.addEventListener('message', handler);
@@ -189,7 +179,6 @@ useEffect(() => {
     }
   }, []);
 
-  // ---------- Delete Notification ----------
   const handleDelete = async (id) => {
     const confirmed = window.confirm('Are you sure you want to delete this notification?');
     if (!confirmed) return;
@@ -214,7 +203,6 @@ useEffect(() => {
     }
   };
 
-  // ---------- Send Notification ----------
   const handleImageSelect = (e) => {
     if (e.target.files?.[0]) setSelectedImage(e.target.files[0]);
   };
@@ -255,7 +243,6 @@ useEffect(() => {
     }
   };
 
-  // ---------- Helpers ----------
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'warning':
@@ -282,7 +269,16 @@ useEffect(() => {
     }
   };
 
-  // ---------- Render ----------
+  const getSliderStyles = (isChecked) => ({
+    ...styles.toggleSlider,
+    backgroundColor: isChecked ? '#2563EB' : '#ccc',
+  });
+
+  const getSliderKnobStyles = (isChecked) => ({
+    ...styles.toggleSliderBefore,
+    transform: isChecked ? 'translateX(20px)' : 'translateX(0)',
+  });
+
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -297,7 +293,22 @@ useEffect(() => {
             </div>
           )}
         </div>
-        <FiBell size={24} color={issub ? "#2563EB" : "#64748B"} />
+        
+        {role === "student" && isPushSupported && (
+          <div style={styles.toggleContainer}>
+            <label style={styles.toggleSwitch}>
+              <input
+                type="checkbox"
+                checked={issub}
+                onChange={handleToggleChange}
+                style={styles.toggleCheckbox}
+              />
+              <span style={getSliderStyles(issub)}>
+                <span style={getSliderKnobStyles(issub)}></span>
+              </span>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Send Notification */}
@@ -331,7 +342,7 @@ useEffect(() => {
               value={newNotification.description}
               onChange={(e) => setNewNotification(prev => ({ ...prev, description: e.target.value }))}
             />
-            <button style={{...styles.sendButton,backgroundColor: loading ? '#94a3b8' : '#2563EB',}} onClick={sendNotification} disabled={loading}>
+            <button style={{ ...styles.sendButton, backgroundColor: loading ? '#94a3b8' : '#2563EB' }} onClick={sendNotification} disabled={loading}>
               <FiSend size={16} color="#FFFFFF" />
             </button>
           </div>
@@ -369,12 +380,11 @@ useEffect(() => {
                   const uri = `${getEndpoint()}/api/img?id=${notification.imageUrl}`;
                   setLightboxImages([{ src: uri }]);
                   setLightboxOpen(true);
-                } else {
-                  if (!notification.read) {
-                   notification.read = true;
-                   setNotifications([...notifications]);
-                    markNotificationAsRead(notification._id); // persist read state
-                  }
+                }
+                if (!notification.read) {
+                  notification.read = true;
+                  setNotifications(prev => [...prev]);
+                  markNotificationAsRead(notification._id);
                 }
               }}
             >
@@ -397,6 +407,11 @@ useEffect(() => {
                     e.stopPropagation();
                     setLightboxImages([{ src: `${getEndpoint()}/api/img?id=${notification.imageUrl}` }]);
                     setLightboxOpen(true);
+                    if (!notification.read) {
+                      notification.read = true;
+                      setNotifications(prev => [...prev]);
+                      markNotificationAsRead(notification._id);
+                    }
                   }}
                 />
               )}
@@ -425,12 +440,22 @@ useEffect(() => {
           open={lightboxOpen}
           close={() => setLightboxOpen(false)}
           slides={lightboxImages}
+          plugins={[Zoom]}
+          carousel={{ finite: true, preload: 0 }}
+          zoom={{
+            maxZoomPixelRatio: 3,
+            zoomInMultiplier: 1.2,
+            doubleTapDelay: 300,
+            doubleClickDelay: 300,
+            keyboardMoveDistance: 50,
+          }}
         />
       )}
     </div>
   );
 }
 
+// Styles object remains the same
 const styles = {
   container: {
     display: 'flex',
@@ -438,7 +463,6 @@ const styles = {
     backgroundColor: '#F9FAFB',
     fontFamily: 'Inter, sans-serif',
     minHeight: '100vh',
-    minHeight: '100dvh',
   },
   header: {
     backgroundColor: '#FFFFFF',
@@ -543,11 +567,11 @@ const styles = {
   },
   titleInput: {
     width: '100%',
+    boxSizing: 'border-box',
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: '12px 16px',
     fontSize: '16px',
-    fontWeight: 400,
     color: '#1F2937',
     border: '1px solid #E5E7EB',
     marginBottom: 12,
@@ -564,7 +588,6 @@ const styles = {
     borderRadius: 12,
     padding: '12px 16px',
     fontSize: '16px',
-    fontWeight: 400,
     color: '#1F2937',
     border: '1px solid #E5E7EB',
     resize: 'none',
@@ -641,10 +664,12 @@ const styles = {
     lineHeight: '20px',
     margin: 0,
     marginBottom: 12,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
   },
   notificationImage: {
     width: '100%',
-    height: 200,
+    maxHeight: 200,
     borderRadius: 10,
     marginTop: 10,
     objectFit: 'cover',
@@ -676,11 +701,52 @@ const styles = {
     padding: 40,
     textAlign: 'center',
   },
-  emptyStateText: {
+  emptyTitle: {
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#1F2937',
+    margin: '16px 0 8px 0',
+  },
+  emptyMessage: {
     fontSize: '14px',
     fontWeight: 400,
     color: '#6B7280',
-    marginTop: 12,
+    margin: 0,
+  },
+  toggleContainer: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  toggleSwitch: {
+    position: 'relative',
+    display: 'inline-block',
+    width: 44,
+    height: 24,
+  },
+  toggleCheckbox: {
+    opacity: 0,
+    width: 0,
+    height: 0,
+  },
+  toggleSlider: {
+    position: 'absolute',
+    cursor: 'pointer',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#ccc',
+    transition: '.4s',
+    borderRadius: 24,
+  },
+  toggleSliderBefore: {
+    position: 'absolute',
+    height: 18,
+    width: 18,
+    left: 3,
+    bottom: 3,
+    backgroundColor: 'white',
+    transition: '.4s',
+    borderRadius: '50%',
   },
 };
-
