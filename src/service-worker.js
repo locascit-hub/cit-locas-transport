@@ -120,12 +120,16 @@ self.addEventListener("push", (event) => {
 // ✅ Add click handler for navigation
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || "/notifications"; // default to notifications if no URL
+
+  const targetUrl = new URL(
+    event.notification.data?.url || "/notifications",
+    self.location.origin
+  ).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (let client of windowClients) {
-        if (client.url.includes(targetUrl) && "focus" in client) {
+        if (client.url === targetUrl && "focus" in client) {
           return client.focus();
         }
       }
@@ -135,6 +139,7 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
+
 
 
 

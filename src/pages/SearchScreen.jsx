@@ -80,9 +80,7 @@ export default function SearchScreen() {
   addRecentBus(bus);
 
   // Navigate as you already do
-  navigate('/route-detail', {
-    state: { userType: 'student' || 'incharge@cit@chennai@0409', _id: bus.obu_id, clgNo: bus.clgNo },
-  });
+  navigate(`/route-detail/${bus.clgNo}`);
 };
 
 const handleViewSchedule = (bus) => {

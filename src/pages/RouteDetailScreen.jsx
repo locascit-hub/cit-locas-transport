@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   MapContainer,
   TileLayer,
@@ -73,8 +72,7 @@ function AnimatedMarker({ position, icon, children }) {
 
 export default function RouteDetailScreen() {
   const navigate = useNavigate();
-  const { state } = useLocation();
-  const { _id, clgNo } = state || {};
+  const {clgNo } = useParams();
   const [loc, setLoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const { token } = useContext(UserContext);
@@ -87,7 +85,6 @@ export default function RouteDetailScreen() {
     }
   }, [loc]);
 
-  // Initial fetch (optional fallback if no socket data yet)
   useEffect(() => {
     if (!token) navigate("/");
 
@@ -114,30 +111,6 @@ export default function RouteDetailScreen() {
     fetchLatest();
   }, [token, navigate, clgNo]);
 
-  // Live updates via socket
-  useEffect(() => {
-    const socket = io(process.env.REACT_APP_BACKEND_ENDPOINT1);
-
-    socket.on("connect", () => {
-      console.log("Connected to socket:", socket.id);
-    });
-
-    socket.on("locationUpdate", (data) => {
-      if (data.clgNo === clgNo) {
-        setLoc({
-          lat: data.lat,
-          lon: data.lon,
-          last: data.created_at,
-        });
-      }
-    });
-
-    socket.on("disconnect", () => {
-      console.log("Disconnected from socket");
-    });
-
-    return () => socket.disconnect();
-  }, [clgNo]);
 
   const busDivIcon = (busNo) =>
     L.divIcon({

@@ -163,7 +163,7 @@ async function purgeIndexedDB(dbname) {
         <Route path="/tracking" element={<TrackingScreen />} />
         <Route path="/notifications" element={<NotificationScreen subscribeUserToPush={subscribeUserToPush} />} />
         <Route path="/profile" element={<ProfileScreen logoutPurge={purgeIndexedDB} userData={userData} />} />
-        <Route path="/route-detail" element={<RouteDetailScreen />} />
+        <Route path="/route-detail/:clgNo" element={<RouteDetailScreen />} />
         <Route path="/driver-location" element={<DriverLocation />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

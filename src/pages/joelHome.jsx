@@ -149,7 +149,7 @@ export default function HomeScreen() {
                     <div 
                       key={id} 
                       style={{ ...styles.busCardHorizontal, minWidth: 180 }} 
-                      onClick={() => navigate('/route-detail', { state: { userType: 'student', _id: bus.vi || bus.obu_id || bus._id, clgNo: bus.clgNo } })}
+                      onClick={() => navigate(`/route-detail/${bus.clgNo}`)}
                     >
                       <div>
                         <h4 style={{ margin: 0, fontSize: 14 }}>{id}</h4>
