@@ -136,6 +136,7 @@ export default function NotificationScreen({ subscribeUserToPush, unsubscribeUse
   };
 
   const fetchNotifications = async () => {
+      setLoading(true);
     try {
       const storedNotifications = await getAllNotifications();
       setNotifications(storedNotifications);
@@ -154,6 +155,8 @@ export default function NotificationScreen({ subscribeUserToPush, unsubscribeUse
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
+    }finally {
+      setLoading(false);
     }
   };
 
