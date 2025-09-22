@@ -95,7 +95,7 @@ export default function ProfileScreen({ userData: propUserData, logoutPurge }) {
   const [saving, setSaving] = useState(false);
   const [scheduleLink, setScheduleLink] = useState('');
   const [scheduleSaving, setScheduleSaving] = useState(false);
-  const [clgNo, setclgNo] = useState('');
+  const [clgNo, setclgNo] = useState('Not Set');
   const [busSaving, setBusSaving] = useState(false);
   const [pinnedLocation, setPinnedLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState([12.98, 80.22]); // Default center (e.g., Chennai)
@@ -184,12 +184,15 @@ const mapSectionRef = React.useRef(null);
   };
 
   const saveBusNo = async () => {
+    if(busSaving==false){
+      setBusSaving(true);
+      return;
+    }
     if (!clgNo.trim()) return;
     if (!userData?.email) {
       alert('User email not available.');
       return;
     }
-    setBusSaving(true);
     try {
       localStorage.setItem('user_bus_no', clgNo.trim());
       const activeToken = token || localStorage.getItem('test');
@@ -205,13 +208,15 @@ const mapSectionRef = React.useRef(null);
       if (resp.ok) {
         alert('Bus number updated successfully ✅');
         setUserBusNo(clgNo.trim());
-        setclgNo('');
+        setclgNo(clgNo.trim());
       } else {
         alert('Failed to save bus number: ' + (result.error || resp.statusText));
+        setclgNo("Not Set");
       }
     } catch (err) {
       console.error('Error saving bus number:', err);
       alert('Something went wrong while saving bus number.');
+      setclgNo("Not Set");
     } finally {
       setBusSaving(false);
     }
@@ -577,14 +582,15 @@ const mapSectionRef = React.useRef(null);
               <span className="detail-label">Bus Number</span>
               <div className="sharelink-box" style={{ width: '100%', marginTop: '6px' }}>
                 <input
+                  defaultValue={clgNo}
                   aria-label="Bus number"
                   type="text"
                   placeholder="Enter your bus number..."
-                  value={clgNo}
                   onChange={(e) => setclgNo(e.target.value)}
+                  disabled={!busSaving}
                 />
-                <button type="button" onClick={saveBusNo} disabled={busSaving}>
-                  {busSaving ? 'Saving...' : 'Save'}
+                <button type="button" onClick={saveBusNo}>
+                  {busSaving ? 'Save' : 'Edit'}
                 </button>
               </div>
             </div>

@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import "../styles/routedetailscreen.css";
 import getEndpoint from "../utils/loadbalancer";
 import { UserContext } from "../contexts";
+import useBusLocation from "../components/LocationSSE";
 
 // ... (rest of the initial setup code like L.Icon.Default, addAnimationStyles, AnimatedMarker, and ReloadControl remains unchanged) ...
 
@@ -115,104 +116,6 @@ function AnimatedMarker({ position, icon, children }) {
   );
 }
 
-function ReloadControl({ onReload,lastUpdateTimestamp }) {
-   
-  const [cooldown, setCooldown] = useState(false);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const [isBlinking, setIsBlinking] = useState(false);
-    const [isShrinking, setIsShrinking] = useState(false);
-
-    useEffect(() => {
-    const checkBlink = setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - lastUpdateTimestamp) / 1000);
-      if (elapsedSeconds >= 10) {
-        setIsShrinking(true);
-      } else {
-        setIsShrinking(false);
-      }
-    }, 1000);
-    return () => clearInterval(checkBlink);
-  }, [lastUpdateTimestamp]);
-
-  const handleReload = async () => {
-    setCooldown(true);
-    
-    await onReload();
-    
-      setCooldown(false);
-      setIsShrinking(false);
-    
-  };
-
-    const buttonClasses = `map-reload-btn ${isShrinking ? "animate-blink-shrink-grow" : ""}`;
-  return (
-    <>
-      <style>
-        {`
-        @keyframes shrink-grow-infinite {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.6);
-    }
-  }
-
-  .animate-blink-shrink-grow svg {
-    animation: shrink-grow-infinite 1s ease-in-out infinite;
-  }
-
-  .map-reload-btn svg {
-    transition: transform 0.3s ease-in-out;
-  }
-  @keyframes blink {
-    0%, 100% { opacity: 5; }
-    50% { opacity: 0.3; }
-  }
-  .animate-blink {
-    animation: blink 1s step-end infinite;
-  }
-  @keyframes color-pulse {
-    0%, 100% {
-      background-color: white;
-    }
-    50% {
-      background-color: rgba(133, 210, 31, 0.2);
-    }
-  }
-        `}
-      </style>
-      
-    <button
-      onClick={handleReload}
-      disabled={cooldown}
-      className={buttonClasses}
-      style={{
-        position: "absolute",
-        bottom: "480px",
-        right: "15px",
-        zIndex: 1000,
-        backgroundColor: "white",
-        border: "2px solid rgba(0,0,0,0.2)",
-        borderRadius: "4px",
-        width: "36px",
-        height: "36px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: "0 1px 5px rgba(0,0,0,0.4)",
-        cursor: cooldown ? "not-allowed" : "pointer",
-        opacity: cooldown ? 0.6 : 1,
-        transition: "opacity 0.3s ease",
-      }}
-      title="Refresh Location"
-    >
-      <FiRefreshCw size={20} color="#2563EB" />
-    
-    </button>
-    </>
-  );
-}
 
 
 
@@ -220,63 +123,31 @@ function ReloadControl({ onReload,lastUpdateTimestamp }) {
 export default function RouteDetailScreen() {
   const navigate = useNavigate();
   const {clgNo } = useParams();
-  const [loc, setLoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const { token } = useContext(UserContext);
   const mapRef = useRef(null);
   const [mapView, setMapView] = useState("street");
-  const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(Date.now());
-  const [timeSinceLastUpdate, setTimeSinceLastUpdate] = useState("Just now");
+  const { loc, lastUpdateTimestamp, error } = useBusLocation(clgNo, token,setLoading);
 
   // 2. Add new state to hold the route path
   const [path, setPath] = useState([]);
 
-  useEffect(() => {
-    if (mapRef.current && loc?.lat && loc?.long) {
-      mapRef.current.panTo([loc.lat, loc.long]);
-    }
-  }, [loc]);
 
   // 4. Update main useEffect to call both fetch functions in order
   useEffect(() => {
-    if (!token) {
-      navigate("/");
-      return;
-    }
+    // if (!token) {
+    //   navigate("/");
+    //   return;
+    // }
     if (!clgNo) {
       alert("No bus number provided.");
       navigate("/search");
       return;
     }
-     fetchLocation(); // Then fetch the live location
     fetchPath(); // Fetch the route path first
    
 
   }, [token, navigate, clgNo]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - lastUpdateTimestamp) / 1000);
-      if (elapsedSeconds == Date.now() ) {
-        setTimeSinceLastUpdate("Just now");
-      }else if(elapsedSeconds == 1) {
-        setTimeSinceLastUpdate("1s ago");
-      }
-      else if(elapsedSeconds >= 10) {
-        setTimeSinceLastUpdate("10s ago");
-        clearInterval(timer); 
-      }
-       else if (elapsedSeconds < 60) {
-        setTimeSinceLastUpdate(`${elapsedSeconds}s ago`);
-      } 
-      else {
-        const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-        setTimeSinceLastUpdate(`${elapsedMinutes}m ago`);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [lastUpdateTimestamp]);
 
   const busDivIcon = (busNo) =>
     L.divIcon({
@@ -291,8 +162,8 @@ export default function RouteDetailScreen() {
           border: 1px solid #316adeff;
           width: fit-content;
         ">
-          <img src="/bus-icon.png" style="width:30px; height:30px; border-radius:6px; margin-right:6px;" />
-          <span style="color: black; font-weight: bold; font-size: 20px;">
+          <img src="/bus-icon.png" style="width:5rem; height:4.5rem; border-radius:6px; margin-right:6px;" />
+          <span style="color: black; font-weight: bold; font-size: 2.5rem;">
             ${busNo}
           </span>
         </div>
@@ -306,8 +177,7 @@ export default function RouteDetailScreen() {
   // 3. Create the new fetchPath function
   const fetchPath = async () => {
     try {
-      // Assuming your new Cloudflare endpoint is /get-path/:clgNo
-      const res = await fetch(`${getEndpoint()}/get-path/${clgNo}`, {
+      const res = await fetch(`${getEndpoint()}/getpath?clgNo=${clgNo}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -334,37 +204,6 @@ export default function RouteDetailScreen() {
   };
 
 
-  const fetchLocation = async () => {
-    try {
-      const res = await fetch(`${getEndpoint()}/get-location/obu/${clgNo}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        if (res.status === 404) {
-          window.location.reload();
-          return;
-        }
-        throw new Error(`Server returned ${res.status}`);
-      }
-      const data = await res.json();
-      setLoc(data);
-      setLastUpdateTimestamp(Date.now());
-    } catch (e) {
-      console.error("Fetch error", e);
-      window.alert("Could not fetch live location.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = () => {
-    const elapsedSeconds = Math.floor((Date.now() - lastUpdateTimestamp) / 1000);
-    return elapsedSeconds >= 5 ? "red" : "green";
-  };
 
   if (loading)
     return <div style={styles.centered}>Loading live location...</div>;
@@ -386,13 +225,41 @@ export default function RouteDetailScreen() {
           marginBottom: "2px",
         }}
       >
-        <button style={styles.backButton} onClick={() => navigate("/search")}>
-          <FiArrowLeft size={20} />
-        </button>
         <div
           style={{ width: "70%", textAlign: "center", height: "100%", ...styles.title }}
         >
-          <span>Bus No: {clgNo}</span>
+          <span style={{fontWeight:"bold"}}>Bus No: {clgNo}</span>
+        </div>
+
+                <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+          <button
+            onClick={() => setMapView("street")}
+            style={{
+              padding: "1rem 2rem",
+              borderRadius: "6px",
+              fontSize: "1.8rem",
+              border: "1px solid #ccc",
+              background: mapView === "street" ? "#2563EB" : "#f3f4f6",
+              color: mapView === "street" ? "white" : "#333",
+              cursor: "pointer",
+            }}
+          >
+            Street
+          </button>
+          <button
+            onClick={() => setMapView("satellite")}
+            style={{
+              padding: "1rem 2rem",
+              borderRadius: "6px",
+              fontSize: "1.8rem",
+              border: "1px solid #ccc",
+              background: mapView === "satellite" ? "#2563EB" : "#f3f4f6",
+              color: mapView === "satellite" ? "white" : "#333",
+              cursor: "pointer",
+            }}
+          >
+            Satellite
+          </button>
         </div>
       </div>
       <div
@@ -413,17 +280,16 @@ export default function RouteDetailScreen() {
           <div
             style={{
               ...styles.statusBar,
-              fontSize: "14px",
-              padding: "0rem 0.5rem",
+              fontSize: "2.3rem",
+              padding: "0.5rem 0.5rem",
               
             }}
           >
-            Last location Updated:{" "}
-            <strong style={{ color: getStatusColor() }}>
-              {timeSinceLastUpdate}
+            Last Updated:{" "}
+            <span style={{fontWeight:"bold",fontSize:"2rem"}}>
+              {new Date(lastUpdateTimestamp).toLocaleString()}
               
-            </strong>
-            
+            </span>
             
           </div>   
         </div>
@@ -431,35 +297,7 @@ export default function RouteDetailScreen() {
       
       
       {/* Header */}
-      <div style={{ height: "75%" }}>
-        <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-          <button
-            onClick={() => setMapView("street")}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "1px solid #ccc",
-              background: mapView === "street" ? "#2563EB" : "#f3f4f6",
-              color: mapView === "street" ? "white" : "#333",
-              cursor: "pointer",
-            }}
-          >
-            Street View
-          </button>
-          <button
-            onClick={() => setMapView("satellite")}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "1px solid #ccc",
-              background: mapView === "satellite" ? "#2563EB" : "#f3f4f6",
-              color: mapView === "satellite" ? "white" : "#333",
-              cursor: "pointer",
-            }}
-          >
-            Satellite View
-          </button>
-        </div>
+      <div style={{ height: "100%" }}>
         <MapContainer
           ref={mapRef}
           center={[loc.lat, loc.long]}
@@ -470,16 +308,19 @@ export default function RouteDetailScreen() {
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
+              maxZoom={19}
             />
           ) : (
             <>
               <TileLayer
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 attribution="Tiles © Esri"
+                maxZoom={19}
               />
               <TileLayer
                 url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
                 attribution="© OpenStreetMap contributors"
+                maxZoom={19}
               />
             </>
           )}
@@ -496,18 +337,7 @@ export default function RouteDetailScreen() {
             position={[loc.lat, loc.long]}
             icon={busDivIcon(clgNo)}
           >
-            <Popup>
-              <strong>Bus No:</strong> {clgNo}
-              <br />
-              <strong>Last Updated:</strong>{" "}
-              {new Intl.DateTimeFormat("en-IN", {
-                dateStyle: "medium",
-                timeStyle: "short",
-                timeZone: "Asia/Kolkata",
-              }).format(new Date(loc.last))}
-            </Popup>
           </AnimatedMarker>
-          <ReloadControl onReload={fetchLocation} lastUpdateTimestamp={lastUpdateTimestamp} />
         </MapContainer>
       </div>
     </div>
@@ -529,22 +359,9 @@ const styles = {
     background: "#f5f7f9ff",
     padding: "0.5rem",
   },
-  backButton: {
-    alignSelf: "flex-start",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    background: "#e5e7eb",
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    marginBottom: "10px",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-  },
   title: {
     margin: 0,
-    fontSize: "22px",
+    fontSize: "3rem",
     fontWeight: "600",
     color: "#1E40AF",
   },

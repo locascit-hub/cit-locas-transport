@@ -172,7 +172,8 @@ const unsubscribeUserFromPush = async (token) => {
 
   const location = useLocation();
   const hideNavOn = ['/','/incharge-cit-login-xyz', '/login', '/register','/incharge-cit-xyz'];
-  const showNav = !hideNavOn.includes(location.pathname.toLowerCase());
+  console.log(location.pathname);
+  const showNav = !(hideNavOn.includes(location.pathname.toLowerCase()) || location.pathname.toLowerCase().startsWith('/route-detail/'));
   const { token, userData } = useContext(UserContext);
    const isLoggedIn = !!token;
 
@@ -208,18 +209,18 @@ export default function App() {
   
 
 
-  // Block non-mobile devices
-useEffect(() => {
-  const ua = navigator.userAgent || "";
-  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(ua);
-  const hasTouch = navigator.maxTouchPoints > 0; // use >0 instead of >1 (some iPhones report exactly 1)
+//   // Block non-mobile devices
+// useEffect(() => {
+//   const ua = navigator.userAgent || "";
+//   const isMobileUA = /Android|iPhone|iPad|iPod/i.test(ua);
+//   const hasTouch = navigator.maxTouchPoints > 0; // use >0 instead of >1 (some iPhones report exactly 1)
 
-  if (isMobileUA && hasTouch) {
-    setBlockPage(false); // allow real mobiles
-  } else {
-    setBlockPage(true);  // block desktops, even with UA spoof
-  }
-}, []);
+//   if (isMobileUA && hasTouch) {
+//     setBlockPage(false); // allow real mobiles
+//   } else {
+//     setBlockPage(true);  // block desktops, even with UA spoof
+//   }
+// }, []);
 
 
 

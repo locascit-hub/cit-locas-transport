@@ -15,11 +15,6 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.map-container {
-  flex: 1;
-  border-top: 1px solid #ccc;
-}
-
 
 
 .centered {
@@ -27,7 +22,7 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  font-size: 18px;
+  font-size: 40px;
   color: #666;
 }
 
@@ -36,3 +31,20 @@
   50% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
+
+/* Custom CSS for Zoom Icons */
+    .leaflet-control-zoom {
+      margin-top: 10px; /* Adjust positioning if needed */
+    }
+
+    .leaflet-control-zoom a {
+      font-size: 50px !important; /* Increase font size of the icons */
+      width: 80px !important; /* Increase button width */
+      height: 80px !important; /* Increase button height */
+      line-height: 60px !important; /* Align text/icon vertically */
+      text-align: center !important;
+    }
+
+    .leaflet-control-zoom a.leaflet-control-zoom-in {
+      border-bottom: 1px solid #ccc !important; /* Maintain separation */
+    }

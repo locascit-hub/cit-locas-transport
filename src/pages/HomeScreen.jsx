@@ -5,6 +5,7 @@ import { FiTruck, FiUsers, FiMapPin, FiSearch, FiClock, FiBell, FiX, FiUser } fr
 import '../styles/homescreen.css';
 import { UserContext } from '../contexts';
 import { getRecentBuses, removeRecentBus } from '../utils/recentBuses';
+import getTrackPageURL from '../utils/trackpagebalancer';
 
 
 export default function HomeScreen() {
@@ -153,7 +154,7 @@ export default function HomeScreen() {
                     <div 
                       key={id} 
                       style={{ ...styles.busCardHorizontal, minWidth: 180, position: 'relative' }} 
-                      onClick={() => navigate(`/route-detail/${bus.clgNo}`)}
+                      onClick={() => { window.location.href = getTrackPageURL(bus.clgNo); }} // same tab
                     >
                       {/* delete button */}
                       <button
@@ -195,7 +196,7 @@ export default function HomeScreen() {
             </div>
             <div className="action-card" style={styles.actionCard} onClick={() => navigate("/profile",{state:{redirectToMap: true}} ) }>
               <FiMapPin size={32} color="#24a972ff" />
-              <p style={styles.actionText}>Pin location</p>
+              <p style={styles.actionText}>Set Boarding Point</p>
             </div>
             <div className="action-card" style={styles.actionCard} onClick={() => navigate("/profile") }>
               <FiUser size={32} color="#24a972ff" />
@@ -297,7 +298,7 @@ const styles = {
   actionGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px", marginTop: "16px", alignItems: "start" },
   actionCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", cursor: "pointer" },
   actionCardFixedWidth: { width: "calc(50% - 10px)" },
-  actionText: { fontSize: 14, fontFamily: "Inter", fontWeight: "500", color: "#1F2937", marginTop: 8 },
+  actionText: { fontSize: 14, fontFamily: "Inter", fontWeight: "500", color: "#1F2937", marginTop: 8 ,textAlign: "center"},
   notificationWrapper: { gridColumn: "1 / -1", display: "flex", justifyContent: "center", alignItems: "center" },
 
   /* bottom-right profile button */
