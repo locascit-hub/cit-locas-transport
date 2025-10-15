@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import getEndpoint from "../utils/loadbalancer";
+import getSocketEndpoint from "../utils/socketBalancer";
 
 const useBusLocation = (busNo, token,setLoading) => {
   const [loc, setLoc] = useState(null);
@@ -10,7 +10,7 @@ const useBusLocation = (busNo, token,setLoading) => {
     if (!busNo) return;
 
     // create SSE connection
-    const url = new URL(`${getEndpoint()}/substream`);
+    const url = new URL(`${getSocketEndpoint(busNo)}/substream`);
     url.searchParams.append("busNo", busNo);
     if (token) url.searchParams.append("auth", token);
 

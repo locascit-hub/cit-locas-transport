@@ -162,8 +162,8 @@ export default function RouteDetailScreen() {
           border: 1px solid #316adeff;
           width: fit-content;
         ">
-          <img src="/bus-icon.png" style="width:5rem; height:4.5rem; border-radius:6px; margin-right:6px;" />
-          <span style="color: black; font-weight: bold; font-size: 2.5rem;">
+          <img src="/bus-icon.png" style="width:30px; height:30px; border-radius:6px; margin-right:6px;" />
+          <span style="color: black; font-weight: bold; font-size: 20px;">
             ${busNo}
           </span>
         </div>
@@ -213,7 +213,7 @@ export default function RouteDetailScreen() {
     );
 
   return (
-    <div style={styles.container}>
+  <div style={styles.container}>
       {/* Back Button */}
       <div
         style={{
@@ -225,41 +225,13 @@ export default function RouteDetailScreen() {
           marginBottom: "2px",
         }}
       >
+        <button style={styles.backButton} onClick={() => navigate("/search")}>
+          <FiArrowLeft size={20} />
+        </button>
         <div
           style={{ width: "70%", textAlign: "center", height: "100%", ...styles.title }}
         >
-          <span style={{fontWeight:"bold"}}>Bus No: {clgNo}</span>
-        </div>
-
-                <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-          <button
-            onClick={() => setMapView("street")}
-            style={{
-              padding: "1rem 2rem",
-              borderRadius: "6px",
-              fontSize: "1.8rem",
-              border: "1px solid #ccc",
-              background: mapView === "street" ? "#2563EB" : "#f3f4f6",
-              color: mapView === "street" ? "white" : "#333",
-              cursor: "pointer",
-            }}
-          >
-            Street
-          </button>
-          <button
-            onClick={() => setMapView("satellite")}
-            style={{
-              padding: "1rem 2rem",
-              borderRadius: "6px",
-              fontSize: "1.8rem",
-              border: "1px solid #ccc",
-              background: mapView === "satellite" ? "#2563EB" : "#f3f4f6",
-              color: mapView === "satellite" ? "white" : "#333",
-              cursor: "pointer",
-            }}
-          >
-            Satellite
-          </button>
+          <span>Bus No: {clgNo}</span>
         </div>
       </div>
       <div
@@ -280,24 +252,54 @@ export default function RouteDetailScreen() {
           <div
             style={{
               ...styles.statusBar,
-              fontSize: "2.3rem",
-              padding: "0.5rem 0.5rem",
+              fontSize: "14px",
+              padding: "0rem 0.5rem",
               
             }}
           >
             Last Updated:{" "}
-            <span style={{fontWeight:"bold",fontSize:"2rem"}}>
-              {new Date(lastUpdateTimestamp).toLocaleString()}
-              
-            </span>
-            
+            <strong>
+                            {new Intl.DateTimeFormat("en-IN", {
+                dateStyle: "medium",
+                timeStyle: "long",
+                timeZone: "Asia/Kolkata",
+              }).format(new Date(loc.ts)).slice(0,-4)}
+            </strong>
           </div>   
         </div>
       </div>
       
       
       {/* Header */}
-      <div style={{ height: "100%" }}>
+      <div style={{ height: "75%" }}>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+          <button
+            onClick={() => setMapView("street")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              background: mapView === "street" ? "#2563EB" : "#f3f4f6",
+              color: mapView === "street" ? "white" : "#333",
+              cursor: "pointer",
+            }}
+          >
+            Street View
+          </button>
+          <button
+            onClick={() => setMapView("satellite")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              background: mapView === "satellite" ? "#2563EB" : "#f3f4f6",
+              color: mapView === "satellite" ? "white" : "#333",
+              cursor: "pointer",
+            }}
+          >
+            Satellite View
+          </button>
+        </div>
         <MapContainer
           ref={mapRef}
           center={[loc.lat, loc.long]}
@@ -308,19 +310,16 @@ export default function RouteDetailScreen() {
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
-              maxZoom={19}
             />
           ) : (
             <>
               <TileLayer
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 attribution="Tiles © Esri"
-                maxZoom={19}
               />
               <TileLayer
                 url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
                 attribution="© OpenStreetMap contributors"
-                maxZoom={19}
               />
             </>
           )}
@@ -359,9 +358,22 @@ const styles = {
     background: "#f5f7f9ff",
     padding: "0.5rem",
   },
+  backButton: {
+    alignSelf: "flex-start",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "#e5e7eb",
+    border: "none",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    marginBottom: "10px",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+  },
   title: {
     margin: 0,
-    fontSize: "3rem",
+    fontSize: "22px",
     fontWeight: "600",
     color: "#1E40AF",
   },

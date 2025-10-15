@@ -5,7 +5,6 @@ import { FiTruck, FiUsers, FiMapPin, FiSearch, FiClock, FiBell, FiX, FiUser } fr
 import '../styles/homescreen.css';
 import { UserContext } from '../contexts';
 import { getRecentBuses, removeRecentBus } from '../utils/recentBuses';
-import getTrackPageURL from '../utils/trackpagebalancer';
 
 
 export default function HomeScreen() {
@@ -154,7 +153,7 @@ export default function HomeScreen() {
                     <div 
                       key={id} 
                       style={{ ...styles.busCardHorizontal, minWidth: 180, position: 'relative' }} 
-                      onClick={() => { window.location.href = getTrackPageURL(bus.clgNo); }} // same tab
+                      onClick={() => { navigate(`/route-detail/${bus.clgNo}`) }} // same tab
                     >
                       {/* delete button */}
                       <button
