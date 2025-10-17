@@ -209,7 +209,7 @@ export default function RouteDetailScreen() {
     return <div style={styles.centered}>Loading live location...</div>;
   if (!loc)
     return (
-      <div style={styles.centered}>⚠ Live location not available yet.</div>
+      <div style={styles.centered}>⚠ {error}. Retry Later</div>
     );
 
   return (
