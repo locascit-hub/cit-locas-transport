@@ -10,7 +10,7 @@ const useBusLocation = (busNo, token, setLoading) => {
     if (!busNo) return;
 
     // Build WebSocket URL
-    const url = new URL(`ws://${getSocketEndpoint(busNo)}/substream`);
+    const url = new URL(`wss://${getSocketEndpoint(busNo)}/substream`);
     url.searchParams.append("busNo", busNo);
     if (token) url.searchParams.append("auth", token);
 
