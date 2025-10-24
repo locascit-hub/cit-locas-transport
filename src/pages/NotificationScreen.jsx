@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useContext } from 'react';
 import {
   FiBell,
@@ -170,12 +171,16 @@ export default function NotificationScreen({ subscribeUserToPush, unsubscribeUse
   };
 
   useEffect(() => {
-    fetchNotifications();
+       
+       fetchNotifications();
+    
     if ('serviceWorker' in navigator) {
       const handler = async (event) => {
         if (event.data?.type === 'NEW_NOTIFICATION') {
           fetchNotifications();
+         
         }
+
       };
       navigator.serviceWorker.addEventListener('message', handler);
       return () => navigator.serviceWorker.removeEventListener('message', handler);
@@ -453,6 +458,17 @@ export default function NotificationScreen({ subscribeUserToPush, unsubscribeUse
             keyboardMoveDistance: 50,
           }}
         />
+      )}
+      {/* Loading Overlay */}
+      {loading && (
+        <div style={styles.loadingOverlay}>
+          <div style={styles.loadingBox}>
+            <svg style={styles.spinner} viewBox="0 0 50 50">
+              <circle cx="25" cy="25" r="20" fill="none" strokeWidth="5" stroke="#2563EB" strokeLinecap="round"/>
+            </svg>
+            <div style={styles.loadingText}>Loading...</div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -752,4 +768,37 @@ const styles = {
     transition: '.4s',
     borderRadius: '50%',
   },
+  loadingOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  loadingBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 12,
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  },
+  spinner: {
+    width: 36,
+    height: 36,
+    marginRight: 12,
+    animation: 'spin 1s linear infinite',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#111827',
+  },
+  // keyframes can't be in JS object styles; we'll use inline SVG animation via style attribute where possible
 };

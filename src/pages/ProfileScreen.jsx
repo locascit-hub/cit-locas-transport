@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 
+// --- (No changes to SVG Icons or Leaflet setup) ---
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
@@ -43,7 +44,6 @@ const LogoutIcon = () => (
   </svg>
 );
 
-// --- 1. NEW SVG ICON ADDED ---
 const MyLocationIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
@@ -55,7 +55,6 @@ const MyLocationIcon = () => (
   </svg>
 );
 
-// --- 2. NEW COMPONENT FOR THE BUTTON ---
 function CurrentLocationButton({ setPinnedLocation }) {
   const map = useMap();
 
@@ -86,6 +85,9 @@ function CurrentLocationButton({ setPinnedLocation }) {
   );
 }
 
+ 
+
+
 export default function ProfileScreen({ userData: propUserData, logoutPurge }) {
   const navigate = useNavigate();
   const { token, userData: ctxUserData, role, setRole, setToken, setSno } = useContext(UserContext);
@@ -98,13 +100,59 @@ export default function ProfileScreen({ userData: propUserData, logoutPurge }) {
   const [clgNo, setclgNo] = useState('Not Set');
   const [busSaving, setBusSaving] = useState(false);
   const [pinnedLocation, setPinnedLocation] = useState(null);
-  const [mapCenter, setMapCenter] = useState([12.98, 80.22]); // Default center (e.g., Chennai)
+  const [mapCenter, setMapCenter] = useState([12.98, 80.22]); // Default center
   const [locationSaving, setLocationSaving] = useState(false);
   const [isLocationSavingDisabled, setIsLocationSavingDisabled] = useState(false);
-   const [userBusNo, setUserBusNo] = useState('');
-   const [isEditMode, setIsEditMode] = useState(false);
-   const location = useLocation();
-const mapSectionRef = React.useRef(null);
+  const [userBusNo, setUserBusNo] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const location = useLocation();
+  const mapSectionRef = React.useRef(null);
+
+  const handleEditClick = () => {
+  if (!isEditMode) {
+    if (navigator.permissions && navigator.geolocation) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+         if (result.state === 'denied') {
+            navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log("User allowed location:", position.coords);
+              setIsEditMode(true);
+            },
+            (error) => {
+              console.warn("User denied or error:", error.message);
+              setIsEditMode(false);
+              alert("Location permission is required to edit your pickup point.");
+            }
+          );
+          
+          setIsEditMode(false);
+        } else if (result.state === 'granted') {
+          // ✅ Already granted → enable edit mode immediately
+          setIsEditMode(true);
+        } else if (result.state === 'prompt') {
+          // 🟡 Will trigger the browser's Allow/Deny popup
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log("User allowed location:", position.coords);
+              setIsEditMode(true);
+            },
+            (error) => {
+              console.warn("User denied or error:", error.message);
+              setIsEditMode(false);
+              alert("Location permission is required to edit your pickup point.");
+            }
+          );
+        }
+      });
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
+  } else {
+    // Cancel edit mode
+    setIsEditMode(false);
+  }
+};
+
 
   useEffect(() => {
     if (!token) {
@@ -113,11 +161,10 @@ const mapSectionRef = React.useRef(null);
   }, [token, navigate]);
 
   useEffect(() => {
-  if (location.state?.redirectToMap && mapSectionRef.current) {
-    // Scroll smoothly to map section
-    mapSectionRef.current.scrollIntoView({ behavior: "smooth" });
-  }
-}, [location]);
+    if (location.state?.redirectToMap && mapSectionRef.current) {
+      mapSectionRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [location]);
 
   useEffect(() => {
     const checkTimeForDisable = () => {
@@ -125,34 +172,48 @@ const mapSectionRef = React.useRef(null);
       const hours = now.getHours();
       const minutes = now.getMinutes();
       const currentTimeInMinutes = hours * 60 + minutes;
-
       const startTimeInMinutes = 5 * 60 + 45; // 5:45 AM
       const endTimeInMinutes = 8 * 60; // 8:00 AM
-
       if (currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes) {
         setIsLocationSavingDisabled(true);
       } else {
         setIsLocationSavingDisabled(false);
       }
     };
-    
     checkTimeForDisable();
     const timerId = setInterval(checkTimeForDisable, 60000);
     return () => clearInterval(timerId);
   }, []);
 
+  // --- MODIFICATION: CONSOLIDATED INITIALIZATION LOGIC ---
+  // This hook now loads BOTH the bus number and the pinned location from localStorage
+  // when the component first mounts.
   useEffect(() => {
+    // 1. Load saved bus number
+    const savedBusNo = localStorage.getItem('user_bus_no');
+    if (savedBusNo) {
+      setclgNo(savedBusNo);
+      setUserBusNo(savedBusNo); // Also set the display value
+    }
+
+    // 2. Load saved location
     const savedLocation = localStorage.getItem('user_pinned_location');
     if (savedLocation) {
       try {
         const parsedLocation = JSON.parse(savedLocation);
         setPinnedLocation(parsedLocation);
         setMapCenter([parsedLocation.lat, parsedLocation.lng]);
+        // If location is found in localStorage, we don't need to ask for geolocation
         return;
       } catch (e) {
         console.error("Could not parse saved location from localStorage.");
+        // If parsing fails, proceed to geolocation fallback
       }
     }
+   
+
+
+    // 3. Geolocation fallback (only runs if no location is found in localStorage)
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -162,9 +223,10 @@ const mapSectionRef = React.useRef(null);
       },
       (error) => {
         console.warn("Geolocation permission denied or failed:", error.message);
+        // If geolocation also fails, the map will just show the default center
       }
     );
-  }, []);
+  }, []); // The empty dependency array [] ensures this runs only ONCE on mount.
 
   const parseEmail = (email) => {
     if (!email) return { name: '', dept: '', batch: '' };
@@ -194,6 +256,7 @@ const mapSectionRef = React.useRef(null);
       return;
     }
     try {
+      // --- This line is crucial and was already here. It saves the data. ---
       localStorage.setItem('user_bus_no', clgNo.trim());
       const activeToken = token || localStorage.getItem('test');
       const resp = await fetch(`${getEndpoint()}/api/save-busno`, {
@@ -212,16 +275,20 @@ const mapSectionRef = React.useRef(null);
       } else {
         alert('Failed to save bus number: ' + (result.error || resp.statusText));
         setclgNo("Not Set");
+        // --- If saving fails, we should also remove it from local storage ---
+        localStorage.removeItem('user_bus_no');
       }
     } catch (err) {
       console.error('Error saving bus number:', err);
       alert('Something went wrong while saving bus number.');
       setclgNo("Not Set");
+      localStorage.removeItem('user_bus_no');
     } finally {
       setBusSaving(false);
     }
   };
 
+  // --- (No changes to saveShareLink or saveScheduleLink) ---
   const saveShareLink = async () => {
     if (!shareLink.trim()) return;
     if (!userData?.email) {
@@ -308,6 +375,7 @@ const mapSectionRef = React.useRef(null);
       return;
     }
     setLocationSaving(true);
+    // --- This line is crucial and was already here. It saves the data. ---
     try {
       localStorage.setItem('user_pinned_location', JSON.stringify(pinnedLocation));
     } catch (e) {
@@ -333,10 +401,13 @@ const mapSectionRef = React.useRef(null);
         alert('Your location has been saved successfully! ✅');
       } else {
         alert('Failed to save location to server: ' + (result.error || 'Unknown error'));
+        // --- If saving fails, we should also remove it from local storage ---
+        localStorage.removeItem('user_pinned_location');
       }
     } catch (err) {
       console.error('Error saving user location:', err);
       alert('An error occurred while saving your location.');
+      localStorage.removeItem('user_pinned_location');
     } finally {
       setLocationSaving(false);
     }
@@ -424,7 +495,27 @@ const mapSectionRef = React.useRef(null);
         .leaflet-container {
             border-radius: 12px;
         }
-        .map-tooltip {
+        .leaflet-control-zoom a {
+    width: 30px !important;  /* <-- Set desired width */
+    height: 30px !important; /* <-- Set desired height */
+    line-height: 30px !important; /* <-- This centers the '+' and '-' */
+    font-size: 1.3rem !important; /* <-- Makes the symbol a bit bigger */
+}
+
+/* This styles the container holding both buttons */
+.leaflet-control-zoom {
+    border: 2px solid rgba(0,0,0,0.2);
+    border-radius: 4px; /* Optional: rounds the container corners */
+}
+
+/* This removes any leftover borders from the internal divs */
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+    border: none !important;
+    background: white !important; /* Ensure background is white */
+}
+
+       .map-tooltip {
             position: relative;
             display: inline-block;
             cursor: help;
@@ -623,7 +714,7 @@ const mapSectionRef = React.useRef(null);
               </div>
               <button 
                 className="edit-location-btn" 
-                onClick={() => setIsEditMode(!isEditMode)}
+                onClick={handleEditClick}
                 aria-label={isEditMode ? "Cancel Editing" : "Edit Location"}
               >
                 <EditIcon />
@@ -663,7 +754,7 @@ const mapSectionRef = React.useRef(null);
             <button
               className="logout-btn"
               style={{ backgroundColor: 'var(--primary-blue)', marginTop: '0' }}
-              onClick={isEditMode ? saveUserLocation : () => setIsEditMode(true)}
+              onClick={isEditMode ? saveUserLocation : () => { handleEditClick();}}
               disabled={isLocationSavingDisabled || (isEditMode && (!pinnedLocation || locationSaving))}
             >
               {isEditMode
