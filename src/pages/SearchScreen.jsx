@@ -13,7 +13,6 @@ import {
 import getEndpoint from '../utils/loadbalancer';
 import { UserContext } from '../contexts';
 import { addRecentBus } from '../utils/recentBuses';
-import getTrackPageURL from '../utils/trackpagebalancer';
 
 export default function SearchScreen() {
   const navigate = useNavigate();
@@ -81,7 +80,7 @@ export default function SearchScreen() {
   addRecentBus(bus);
 
   // Navigate as you already do
-  window.location.href = getTrackPageURL(bus.clgNo);
+  navigate('/route-detail/' + bus.clgNo);
 };
 
 const handleViewSchedule = (bus) => {
