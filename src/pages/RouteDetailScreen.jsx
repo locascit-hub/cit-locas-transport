@@ -84,7 +84,7 @@ function AnimatedMarker({ position, icon, children }) {
       cancelAnimationFrame(animationRef.current);
     }
 
-    const duration = 8000;
+    const duration = 3000;
     let start = null;
 
     const animate = (timestamp) => {
@@ -123,14 +123,19 @@ function AnimatedMarker({ position, icon, children }) {
 export default function RouteDetailScreen() {
   const navigate = useNavigate();
   const {clgNo } = useParams();
-  const [loading, setLoading] = useState(true);
+
   const { token } = useContext(UserContext);
   const mapRef = useRef(null);
   const [mapView, setMapView] = useState("street");
-  const { loc, lastUpdateTimestamp, error } = useBusLocation(clgNo, token,setLoading);
+  const { loc, lastUpdateTimestamp, error } = useBusLocation(clgNo, token);
 
   // 2. Add new state to hold the route path
   const [path, setPath] = useState([]);
+
+  useEffect(() => {
+  console.log("📍 RouteDetailScreen received loc:", loc);
+}, [loc]);
+
 
 
   // 4. Update main useEffect to call both fetch functions in order
@@ -144,7 +149,7 @@ export default function RouteDetailScreen() {
       navigate("/search");
       return;
     }
-    fetchPath(); // Fetch the route path first
+    
    
 
   }, [token, navigate, clgNo]);
@@ -175,42 +180,45 @@ export default function RouteDetailScreen() {
     });
     
   // 3. Create the new fetchPath function
-  const fetchPath = async () => {
-    try {
-      const res = await fetch(`${getEndpoint()}/getpath?clgNo=${clgNo}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+  // const fetchPath = async () => {
+  //   try {
+  //     const res = await fetch(`${getEndpoint()}/getpath?clgNo=${clgNo}`, {
+  //       method: "GET",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  //       },
+  //     });
 
-      if (!res.ok) {
-        // If path is not found or another error, we don't block the UI.
-        // The live location can still be shown.
-        console.error(`Could not fetch route path, server returned ${res.status}`);
-        return; // Exit quietly
-      }
+  //     if (!res.ok) {
+  //       // If path is not found or another error, we don't block the UI.
+  //       // The live location can still be shown.
+  //       console.error(`Could not fetch route path, server returned ${res.status}`);
+  //       return; // Exit quietly
+  //     }
       
-      const data = await res.json();
-      // Ensure the response has a 'path' array
-      if (data && Array.isArray(data.path)) {
-        setPath(data.path);
-      }
-    } catch (e) {
-      console.error("Fetch path error", e);
-      // Don't show an alert for path errors to avoid interrupting the user.
-    }
-  };
+  //     const data = await res.json();
+  //     // Ensure the response has a 'path' array
+  //     if (data && Array.isArray(data.path)) {
+  //       setPath(data.path);
+  //     }
+  //   } catch (e) {
+  //     console.error("Fetch path error", e);
+  //     // Don't show an alert for path errors to avoid interrupting the user.
+  //   }
+  // };
 
 
 
-  if (loading)
-    return <div style={styles.centered}>Loading live location...</div>;
-  if (!loc)
-    return (
-      <div style={styles.centered}>⚠ {error}. Retry Later</div>
-    );
+  if (!loc) {
+  return (
+    <div style={styles.centered}>
+      Loading live location…
+    </div>
+  );
+}
+if (error)
+  return <div style={styles.centered}>⚠ {error}</div>;
 
   return (
   <div style={styles.container}>

@@ -11,7 +11,7 @@ function getSocketEndpoint(busNo){
     return `${process.env.REACT_APP_BACKEND_ENDPOINT3.slice(8)}`;
   }else{
     //from 60-79
-    return `${process.env.REACT_APP_BACKEND_ENDPOINT3.slice(8)}`;
+    return `${process.env.REACT_APP_BACKEND_ENDPOINT4.slice(8)}`;
   }
 }
 

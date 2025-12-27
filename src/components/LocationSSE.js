@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import getSocketEndpoint from "../utils/socketBalancer";
 
-const useBusLocation = (busNo, token, setLoading) => {
+const useBusLocation = (busNo, token) => {
   const [loc, setLoc] = useState(null);
   const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(null);
   const [error, setError] = useState(null);
@@ -18,62 +18,35 @@ const useBusLocation = (busNo, token, setLoading) => {
 
 ws.onopen = () => {
   console.log("WebSocket connection established");
-  ws.send(1); // immediate first ping
-
-  let counter = 0;
-
-  function scheduleNextPing() {
-    const now = Date.now();
-    const next10s = Math.ceil(now / 10000) * 10000; // next multiple of 10s
-    const delay = next10s - now;
-
-    console.log(`Scheduling next ping in ${delay} ms`);
-
-    setTimeout(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(1);
-        counter++;
-      }
-
-      if (counter > 100) { // after 100*10s = ~16.7 minutes
-        ws.close();
-        setError("Reload the page to continue live location updates.");
-        setLoc(null);
-        return;
-      }
-
-      scheduleNextPing(); // recursively schedule next aligned ping
-    }, delay);
-  }
-
-  scheduleNextPing(); // start aligned ping loop
+  
 };
 
 
     ws.onmessage = (e) => {
-      try {
+  if (!e.data) return;
 
-        if(e.data === "{}"){
-          setLoc(null);
-          setError("Live Sharing Stopped");
-          setLoading(false);
-          ws.close();
-          return;
-        }
+  let data;
+  try {
+    data = JSON.parse(e.data);
+  } catch {
+    console.warn("Non-JSON WS message ignored:", e.data);
+    return;
+  }
 
-        console.log("WebSocket message received:", e.data);
-        
+  // 🔴 VERY IMPORTANT: validate coordinates
+  if (
+    typeof data.lat !== "number" ||
+    typeof data.long !== "number"
+  ) {
+    console.warn("Invalid location payload ignored:", data);
+    return;
+  }
 
-        if (e.data === "undefined") return;
+  console.log("📍 Valid location received:", data);
 
-        const data = JSON.parse(e.data);
-        setLoc(data);
-        setLastUpdateTimestamp(data.ts);
-        setLoading(false);
-      } catch (err) {
-        console.error("Failed to parse WebSocket data", err);
-      }
-    };
+  setLoc(data);
+  setLastUpdateTimestamp(data.ts || Date.now());
+};
 
     ws.onerror = (err) => {
       console.error("WebSocket error", err);
