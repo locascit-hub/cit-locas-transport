@@ -6,8 +6,38 @@ const useBusLocation = (busNo, token) => {
   const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(null);
   const [error, setError] = useState(null);
 
+  const CACHE_DURATION = 10 * 60 * 60 * 1000;
+
   useEffect(() => {
     if (!busNo) return;
+
+    const CACHE_KEY = `bus_loc_${busNo}`;
+
+    //load cache immediately
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const parsedData = JSON.parse(cached);
+        const now = Date.now();
+        const isExpired = now - parsedData.timestamp > CACHE_DURATION;
+
+        if (!isExpired && parsedData.location) {
+          console.log("♻️ Restoring location from cache:", parsedData.location);
+          setLoc(parsedData.location);
+          setLastUpdateTimestamp(parsedData.timestamp);
+        } else {
+          console.log(" Cache expired or invalid, clearing...");
+          localStorage.removeItem(CACHE_KEY);
+          setLoc(null); // Clear old data if expired
+        }
+      } catch (e) {
+        console.warn("Error parsing cached location", e);
+        localStorage.removeItem(CACHE_KEY);
+      }
+    } else {
+      
+      setLoc(null); 
+    }
 
     // Build WebSocket URL
     const url = new URL(`wss://${getSocketEndpoint(busNo)}/substream`);
@@ -46,6 +76,13 @@ ws.onopen = () => {
 
   setLoc(data);
   setLastUpdateTimestamp(data.ts || Date.now());
+
+  //  SAVE TO CACHE ON NEW UPDATE
+      const cacheData = {
+        location: data,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
 };
 
     ws.onerror = (err) => {
