@@ -359,6 +359,7 @@ export default function RouteDetailScreen() {
           center={[loc.lat, loc.long]}
           zoom={16}
           style={{ height: "100%", width: "100%", borderRadius: "12px", overflow: "hidden" }}
+          attributionControl={false}
         >
           {mapView === "street" ? (
             <TileLayer
