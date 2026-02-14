@@ -313,10 +313,10 @@ export default function RouteDetailScreen() {
           <strong>
             {new Intl.DateTimeFormat("en-IN", {
               dateStyle: "medium",
-              timeStyle: "long",
+              timeStyle: "short",
               timeZone: "Asia/Kolkata",
             })
-              .format(new Date(lastUpdateTimestamp))}
+              .format(new Date(loc.ts))}
           </strong>
         </div>
       </div>
