@@ -130,7 +130,7 @@ function AnimatedMarker({ position, icon, children }) {
       cancelAnimationFrame(animationRef.current);
     }
 
-    const duration = 3000;
+    const duration = 5000;
     let start = null;
 
     const animate = (timestamp) => {
